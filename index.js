@@ -12,50 +12,60 @@ const ERR_RESPONSE = JSON.stringify({
 });
 
 
-const server = http.createServer((request, response) => {
-	// console.log(request);
+const server = http.createServer((request, response) => {;
 	response.setHeader('Content-Type', 'application/json');
 	function respondDirectly (obj) {
 		response.end(JSON.stringify(obj));
 	}
 
-	silently(() => {
-		// TODO: update poll
-
+	try {
 		const queryParams = url.parse(request.url, true).query;
-		const commandText = queryParams.text;
+		console.log(request.url);
 
-		console.log('request: @'+queryParams.user_name+' sent "/taskpot ' + queryParams.text + '"');
+		if(!queryParams || !queryParams.user_name) {
+			return response.end(ERR_RESPONSE);
+		}
 
-		if (queryParams.user !== 'etienneh') {
-			return respondDirectly({
-				'text':'down for maintenance'
+		if(request.url.startsWith(bot.INTERACTIVE_URL)) {
+			console.log('updating poll!');
+			return bot.updatePoll({
+				respondDirectly: respondDirectly,
+				user: queryParams.user_name,
+				responseUrl: queryParams.response_url,
+				params: queryParams
 			});
 		}
+
+		const commandText = queryParams.text;
+		console.log('request: @'+queryParams.user_name+' sent "/taskpot ' + queryParams.text + '"');
 
 		if (commandText.startsWith('timer')) {
 			return bot.doTimer({
 				respondDirectly: respondDirectly,
 				steepLocation: getLocation(commandText),
-				urlQueryParams: queryParams
+				user: queryParams.user_name,
+				responseUrl: queryParams.response_url
 			});
 		} else if (commandText.startsWith('asks')) {
 			return bot.doAsks({
 				respondDirectly: respondDirectly,
-				inputText: commandText.substring('asks '.length)
+				inputText: commandText.substring('asks '.length),
+				responseUrl: queryParams.response_url
 			});
 		} else {
 			return bot.doPoll({
 				respondDirectly: respondDirectly,
-				pollText: commandText
+				pollText: commandText,
+				user: queryParams.user_name,
+				responseUrl: queryParams.response_url
 			});
 		}
 
-
-	}).catch((thrownError) => {
-		console.error(thrownError);
+	}
+	catch (err) {
+		console.error(err);
 		return response.end(ERR_RESPONSE);
-	});
+	}
 });
 
 server.listen(WEBFACTION_PORT, '127.0.0.1', (err) => {
@@ -65,19 +75,6 @@ server.listen(WEBFACTION_PORT, '127.0.0.1', (err) => {
 
 	console.log(`server is listening on ${WEBFACTION_PORT}`);
 });
-
-function silently(fn, thisArg) {
-	// const originalArguments = Array.from(arguments).slice(3);
-
-	return new Promise((resolve, reject) => {
-		try {
-			const result = fn.apply(thisArg || this);
-			resolve(result);
-		} catch (err) {
-			reject(err);
-		}
-	});
-}
 
 function getLocation(commandText) {
 	if (commandText.indexOf(' ') === -1) {

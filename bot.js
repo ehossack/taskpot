@@ -2,12 +2,16 @@
 
 const Promise = require('promise');
 const util = require('util');
-const nodeRestClient = require('node-rest-client');
+const rp = require('request-promise');
+
+const INTERACTIVE_URL = '/record-response';
 
 module.exports = {
 	doTimer: doTimer,
 	doAsks: doAsks,
-	doPoll: doPoll
+	doPoll: doPoll,
+	updatePoll: updatePoll,
+	INTERACTIVE_URL: INTERACTIVE_URL
 };
 
 const POLL_GIPHY_TEXT = 'who wants coffee';
@@ -25,18 +29,43 @@ const TIMER_RESPONSES = [
 	'There\'s a _pressing_ issue to solve'
 ];
 const GIPHY_API_KEY = 'Jkh4yX4p203mgi9ThU7ALmKjndryogfK';
-const REQUEST_RECEIVED = {};
+const REQUEST_RECEIVED = undefined;
 
-const client = new nodeRestClient.Client();
 const setTimeoutPromise = util.promisify(setTimeout);
 
 const previousInvocations = {
 	inLastMinute: 0
 };
 
+const client = {
+	doGet: (url) => {
+		return rp({
+			uri: url,
+			headers: {
+				'User-Agent': 'Request-Promise'
+			},
+			json: true
+		});
+	},
+	doPost: (url, payload, urlencoded) => {
+		const isJson = urlencoded !== 'urlencoded';
+		return rp({
+			method: 'POST',
+			uri: url,
+			headers: {
+				'User-Agent': 'Request-Promise',
+				'Content-Type': isJson ? 'application/json' : 'application/x-www-form-urlencoded'
+			},
+			body: isJson ? payload : undefined,
+			form: isJson ? undefined : payload,
+			json: !!isJson
+		});
+	}
+};
+
 function doTimer(params) {
-	const user = params.urlQueryParams.user;
-	const delayedResponseUrl = params.urlQueryParams.response_url;
+	const user = params.user;
+	const delayedResponseUrl = params.responseUrl;
 	const timerSetAt = Date.now();
 
 	params.respondDirectly(REQUEST_RECEIVED);
@@ -127,16 +156,10 @@ e.g. giphy who wants coffee
  */
 function _callGiphy(keywords) {
 	const text = encodeURI(keywords);
-	const requestUrl = `https://api.giphy.com/v1/gifs/random?tag=${text}&api_key=${GIPHY_API_KEY}`;
-	return new Promise((resolve, reject) => {
-		client.get(requestUrl,
-			function onSuccess(data, response) {
-				resolve(data.data, keywords);
-			},
-			function onFail(data, response) {
-				reject(data, response);
+	return client.doGet(`https://api.giphy.com/v1/gifs/random?tag=${text}&api_key=${GIPHY_API_KEY}`)
+			.then((wrappedData) => {
+				return wrappedData.data;
 			});
-	});
 }
 
 function _respondWith(requestUrl, obj) {
@@ -151,7 +174,7 @@ function _respondWith(requestUrl, obj) {
 }
 
 function doAsks(params) {
-	const responseUrl = params.urlQueryParams.response_url;
+	const responseUrl = params.responseUrl;
 	const keywords = getQuotedKeywords(params.inputText);
 	if (!keywords) {
 		return params.respondDirectly({
@@ -187,39 +210,68 @@ function getQuotedKeywords(inputText) {
 }
 
 function doPoll(params) {
-	const user = params.urlQueryParams.user;
-	const responseUrl = params.urlQueryParams.response_url;
-
 	params.respondDirectly(REQUEST_RECEIVED);
 
-	_callGiphy(POLL_GIPHY_TEXT).then((giphyResponse) => {
-		_respondWith(responseUrl, {
-			'text': 'Who wants coffee?',
-			'attachments': [
-				{
-					'fallback': 'You should totally respond if you want coffee',
-					'image_url': giphyResponse.fixed_height_downsampled_url,
-					'thumb_url': giphyResponse.fixed_height_downsampled_url,
-					'text': params.pollText,
-					'footer': '/giphy \'who wants coffee\'',
-					'actions': [
-						{
-							'type': 'button',
-							'name': 'yes_i_want_coffee',
-							'text': 'Me!',
-							'url': `taskpot.hossack.me/record-response?url=${responseUrl}`
-						}
-					],
-					'fields': [
-						{
-							'title': 'wants taskpot',
-							'value': `${user}`,
-							'short': false
-						}
-					]
-				}
-			]
-		});
+	_getPerson(params.user).then((personData) => {
+		let name = params.user;
+		if(personData.ok) {
+			name = personData.user.profile.real_name;
+		}
+		_respondWithPollGif(name, params);
+	}).catch((err) => {
+		_respondWithPollGif(params.user, params);
 	});
 }
 
+function _getPerson(username) {
+	return client.doPost('https://slack.com/api/users.info', {
+		user: username,
+		token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
+	}, 'urlencoded');
+}
+
+function _respondWithPollGif(user, params) {
+	const responseUrl = params.responseUrl;
+
+	let attachment = {
+		'fallback': 'You should totally respond if you want coffee',
+		'text': params.pollText,
+		'footer': '/giphy \'who wants coffee\'',
+		'actions': [
+			{
+				'type': 'button',
+				'name': 'yes_i_want_coffee',
+				'text': 'Me!',
+				'url': `http:/taskpot.hossack.me/record-response?url=${responseUrl}`
+			}
+		],
+		'fields': [
+			{
+				'title': 'wants taskpot',
+				'value': `${user}`,
+				'short': false
+			}
+		]
+	};
+	const responseObj = {
+		'text': 'Who wants coffee?',
+		'attachments': [
+			attachment
+		]
+	};
+
+	_callGiphy(POLL_GIPHY_TEXT).then((giphyResponse) => {
+		attachment.image_url = giphyResponse.fixed_height_downsampled_url;
+		attachment.thumb_url = giphyResponse.fixed_height_downsampled_url;
+
+		client.doPost(responseUrl, responseObj);
+	}).catch((err) => {
+		console.log('giphy request failed!!');
+		console.log(err);
+		client.doPost(responseUrl, responseObj);
+	});
+}
+
+function updatePoll(params) {
+
+}
