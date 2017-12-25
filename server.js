@@ -8,7 +8,6 @@ app.use(bodyParser.json({ type: 'application/json' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const bot = require('./bot.js');
-// const url = require('url');
 
 const WEBFACTION_PORT = 13323;
 
@@ -21,13 +20,17 @@ app.post('/', (request, response) => {
 		}
 
 		const commandText = payload.text;
-		console.log('request: @' + payload.user_name + ' sent "/taskpot ' + payload.text + '"');
+		const user = {
+			name: payload.user_name,
+			id: payload.user_id
+		};
+		console.log('request: @' + user.name + ' sent "/taskpot ' + payload.text + '"');
 
 		if (commandText.startsWith('timer')) {
 			return bot.doTimer({
 				respondDirectly: _respondWith(response),
 				steepLocation: _getLocation(commandText),
-				user: payload.user_name,
+				user: user,
 				responseUrl: payload.response_url
 			});
 		} else if (commandText.startsWith('asks')) {
@@ -40,10 +43,7 @@ app.post('/', (request, response) => {
 			return bot.doPoll({
 				respondDirectly: _respondWith(response),
 				pollText: commandText,
-				user: {
-					name: payload.user_name,
-					id: payload.user_id
-				},
+				user: user,
 				responseUrl: payload.response_url
 			});
 		}
@@ -64,7 +64,7 @@ function _sendError(response) {
 function _respondWith(response) {
 	return (input) => {
 		response.statusCode = 200;
-		if (typeof input === 'Object') {
+		if (typeof input === 'object') {
 			response.json(input);
 		} else {
 			response.end(input);
@@ -97,6 +97,7 @@ app.post(bot.INTERACTIVE_URL, (request, response) => {
 });
 
 app.listen(WEBFACTION_PORT, (err) => {
+	bot.clearStorage();
 	if (err) {
 		return console.log('something bad happened', err);
 	}

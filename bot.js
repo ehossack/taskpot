@@ -1,12 +1,14 @@
 'use strict';
 
-// const Promise = require('promise');
 const util = require('util');
 const rp = require('request-promise');
+const storage = require('node-persist');
+const Promise = require('promise');
 
 const INTERACTIVE_URL = '/record-response';
 
 module.exports = {
+	clearStorage: clearStorage,
 	doTimer: doTimer,
 	doAsks: doAsks,
 	doPoll: doPoll,
@@ -33,10 +35,7 @@ const REQUEST_RECEIVED = '';
 
 const setTimeoutPromise = util.promisify(setTimeout);
 
-// eslint-disable-next-line no-unused-vars
-const previousInvocations = {
-	inLastMinute: 0
-};
+storage.initSync();
 
 const client = {
 	URL_ENCODED: 'urlencoded',
@@ -67,48 +66,77 @@ const client = {
 	}
 };
 
+function clearStorage() {
+	console.log('clearing storage...');
+	storage.clearSync();
+	console.log('done');
+}
+
 function doTimer(params) {
 	const user = params.user;
-	const delayedResponseUrl = params.responseUrl;
 	const timerSetAt = Date.now();
+	const setBy = storage.getItemSync('timer_set_by');
 
-	// params.respondDirectly(REQUEST_RECEIVED);
-	// TODO: check invocations
+	if (!!setBy) {
+		const cachedName = storage.getItemSync(setBy) || setBy;
+		return params.respondDirectly({
+			'response_type': 'ephemeral',
+			'text': `Sorry, a timer was already set by ${cachedName}`
+		});
+	}
+	storage.setItemSync('timer_set_by', user.name);
 
-	_callGiphy('4 minutes').then((giphyResponse) => {
-
-		_respondWith(delayedResponseUrl, {
+	Promise.all([
+		new Promise(resolve => {
+			_getPerson(user)
+				.then(resolve)
+				.catch(() => {
+					resolve(user.name);
+				});
+		}),
+		new Promise(resolve => {
+			_callGiphy('4 minutes')
+				.then(resolve)
+				.catch(() => {
+					resolve(null);
+				});
+		})
+	]).then(arr => {
+		console.log(arr);
+		const username = arr[0];
+		const giphyResponse = arr[1];
+		const attachment = 	{
+			'fallback': '4 minute gif was displayed',
+			'pretext': `${username} is steeping the coffee :coffee:`,
+			'footer': '/giphy 4 minutes',
+			'ts': timerSetAt
+		};
+		const responseObj = {
 			'response_type': 'in_channel',
 			'attachments': [
-				{
-					'fallback': '4 minute gif was displayed',
-					'pretext': `${user} is steeping the coffee :coffee:`,
-					'image_url': giphyResponse.fixed_height_downsampled_url,
-					'thumb_url': giphyResponse.fixed_height_downsampled_url,
-					'footer': '/giphy 4 minutes',
-					'ts': timerSetAt
-				}
+				attachment
 			]
-		});
-	}).catch(() => {
+		};
 
-		_respondWith(delayedResponseUrl, {
-			'response_type': 'in_channel',
-			'attachments': [
-				{
-					'pretext': `${user} is steeping the coffee :coffee:`,
-					'ts': timerSetAt
-				}
-			]
-		});
+		if (giphyResponse) {
+			attachment.image_url = giphyResponse.fixed_height_downsampled_url;
+			attachment.thumb_url = giphyResponse.fixed_height_downsampled_url;
+		} else {
+			delete attachment.footer;
+		}
 
+		client.doPost(params.responseUrl, responseObj);
 	});
 
+	params.respondDirectly(REQUEST_RECEIVED);
+
 	return setTimeoutPromise(240000).then(() => {
+		storage.removeItemSync('timer_set_by');
+
 		const randomPhrase = TIMER_RESPONSES[Math.floor(Math.random() * TIMER_RESPONSES.length)];
 		const responseData = {
 			'response_type': 'in_channel',
-			'text': randomPhrase
+			'text': `*4 minutes is up!* ${randomPhrase}`
 		};
 		if (params.steepLocation) {
 			responseData.attachments = [
@@ -116,7 +144,7 @@ function doTimer(params) {
 			];
 		}
 
-		_respondWith(delayedResponseUrl, responseData);
+		client.doPost(params.responseUrl, responseData);
 	});
 }
 
@@ -176,10 +204,8 @@ function doAsks(params) {
 		});
 	}
 
-	params.respondDirectly(REQUEST_RECEIVED);
-
-	_callGiphy(keywords, (giphyResponse) => {
-		_respondWith(responseUrl, {
+	_callGiphy(keywords).then((giphyResponse) => {
+		client.doPost(responseUrl, {
 			'response_type': 'in_channel',
 			'attachments': [
 				{
@@ -193,6 +219,8 @@ function doAsks(params) {
 			]
 		});
 	});
+
+	params.respondDirectly(REQUEST_RECEIVED);
 }
 
 function getQuotedKeywords(inputText) {
@@ -203,9 +231,8 @@ function getQuotedKeywords(inputText) {
 }
 
 function doPoll(params) {
-	_getPerson(params.user.id).then((personData) => {
-		const name = _getName(personData, params.user.name, params.user.id);
-		_respondWithPollGif(name, params);
+	_getPerson(params.user).then((username) => {
+		_respondWithPollGif(username, params);
 	}).catch(() => {
 		_respondWithPollGif(params.user.name, params);
 	});
@@ -213,24 +240,29 @@ function doPoll(params) {
 	params.respondDirectly(REQUEST_RECEIVED);
 }
 
-function _getPerson(userId) {
-	return client.doPost('https://slack.com/api/users.profile.get', {
-		user: userId,
-		token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
-	}, client.URL_ENCODED).then((unwrappedData) => {
-		return JSON.parse(unwrappedData);
-	});
-}
-
-function _getName(personData, user, userId) {
-	let name = `@${user}`;
-	if (personData.ok) {
-		name = personData.profile.first_name;
-	} else {
-		console.log(`requesting ${name}'s real name (id ${userId}) failed`);
-		console.log(personData);
+function _getPerson(user) {
+	const cachedName = storage.getItemSync(user.name);
+	if (cachedName) {
+		console.log(`found ${user.name} in cache: ${cachedName}`);
+		return cachedName;
 	}
-	return name;
+	return client.doPost('https://slack.com/api/users.profile.get', {
+							user: user.id,
+							token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
+						}, client.URL_ENCODED)
+		.then((unwrappedData) => {
+			const data = JSON.parse(unwrappedData);
+
+			let name = `@${user.name}`;
+			if (data.ok) {
+				name = data.profile.first_name;
+				storage.setItemSync(user.name, name);
+			} else {
+				console.log(`requesting ${name}'s real name (id ${user.id}) failed`);
+				console.log(data);
+			}
+			return name;
+		});
 }
 
 function _respondWithPollGif(userName, params) {
@@ -285,9 +317,8 @@ function _makePollPayload(pollText, user, gifUrl) {
 }
 
 function updatePoll(params) {
-	_getPerson(params.newUser.id).then((personData) => {
-		const name = _getName(personData, params.newUser.name, params.newUser.id);
-		_updateAndRespond(params.responseUrl, params.originalMessage, name);
+	_getPerson(params.newUser.id).then((username) => {
+		_updateAndRespond(params.responseUrl, params.originalMessage, username);
 	}).catch(() => {
 		_updateAndRespond(params.responseUrl, params.originalMessage, params.newUser.name);
 	});
