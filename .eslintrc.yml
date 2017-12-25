@@ -12,7 +12,7 @@ env:
   node: true
 
 rules:
-  indent: [1, 'tab']
+  # indent: [1, 'tab']
   brace-style: [2, "1tbs"]
   comma-style: [1, "last"]
   default-case: 2
@@ -29,7 +29,7 @@ rules:
   guard-for-in: 2
   strict: [2, "global"]
   no-alert: 2
-  camelcase: 1
+  camelcase: [1, {properties: never}]
   curly: [2, "all"]
   eqeqeq: [2, "allow-null"]
   no-empty: 2

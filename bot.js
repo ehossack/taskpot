@@ -1,6 +1,6 @@
 'use strict';
 
-const Promise = require('promise');
+// const Promise = require('promise');
 const util = require('util');
 const rp = require('request-promise');
 
@@ -29,32 +29,36 @@ const TIMER_RESPONSES = [
 	'There\'s a _pressing_ issue to solve'
 ];
 const GIPHY_API_KEY = 'Jkh4yX4p203mgi9ThU7ALmKjndryogfK';
-const REQUEST_RECEIVED = undefined;
+const REQUEST_RECEIVED = '';
 
 const setTimeoutPromise = util.promisify(setTimeout);
 
+// eslint-disable-next-line no-unused-vars
 const previousInvocations = {
 	inLastMinute: 0
 };
 
 const client = {
+	URL_ENCODED: 'urlencoded',
 	doGet: (url) => {
 		return rp({
 			uri: url,
 			headers: {
-				'User-Agent': 'Request-Promise'
+				'User-Agent': 'Request-Promise',
+				'Accept': 'application/json'
 			},
 			json: true
 		});
 	},
 	doPost: (url, payload, urlencoded) => {
-		const isJson = urlencoded !== 'urlencoded';
+		const isJson = (urlencoded !== client.URL_ENCODED);
 		return rp({
 			method: 'POST',
 			uri: url,
 			headers: {
 				'User-Agent': 'Request-Promise',
-				'Content-Type': isJson ? 'application/json' : 'application/x-www-form-urlencoded'
+				'Content-Type': isJson ? 'application/json' : 'application/x-www-form-urlencoded',
+				'Accept': 'application/json'
 			},
 			body: isJson ? payload : undefined,
 			form: isJson ? undefined : payload,
@@ -68,7 +72,7 @@ function doTimer(params) {
 	const delayedResponseUrl = params.responseUrl;
 	const timerSetAt = Date.now();
 
-	params.respondDirectly(REQUEST_RECEIVED);
+	// params.respondDirectly(REQUEST_RECEIVED);
 	// TODO: check invocations
 
 	_callGiphy('4 minutes').then((giphyResponse) => {
@@ -86,14 +90,14 @@ function doTimer(params) {
 				}
 			]
 		});
-	}).catch((reason) => {
+	}).catch(() => {
 
 		_respondWith(delayedResponseUrl, {
 			'response_type': 'in_channel',
 			'attachments': [
 				{
 					'pretext': `${user} is steeping the coffee :coffee:`,
-					'ts': Date.now()
+					'ts': timerSetAt
 				}
 			]
 		});
@@ -101,13 +105,13 @@ function doTimer(params) {
 	});
 
 	return setTimeoutPromise(240000).then(() => {
-		const randomPhrase = TIMER_RESPONSES[Math.floor(Math.random()*TIMER_RESPONSES.length)];
+		const randomPhrase = TIMER_RESPONSES[Math.floor(Math.random() * TIMER_RESPONSES.length)];
 		const responseData = {
 			'response_type': 'in_channel',
 			'text': randomPhrase
 		};
 		if (params.steepLocation) {
-			responseData['attachments'] = [
+			responseData.attachments = [
 				{ 'text': params.steepLocation }
 			];
 		}
@@ -157,20 +161,9 @@ e.g. giphy who wants coffee
 function _callGiphy(keywords) {
 	const text = encodeURI(keywords);
 	return client.doGet(`https://api.giphy.com/v1/gifs/random?tag=${text}&api_key=${GIPHY_API_KEY}`)
-			.then((wrappedData) => {
-				return wrappedData.data;
-			});
-}
-
-function _respondWith(requestUrl, obj) {
-	return new Promise((resolve, reject) => {
-		client.post(requestUrl, {
-			headers: { 'Content-Type': 'application/json' },
-			data: obj
-		}, function onReply(requestData, response) {
-			resolve(requestData, response);
+		.then((wrappedData) => {
+			return wrappedData.data;
 		});
-	});
 }
 
 function doAsks(params) {
@@ -210,68 +203,104 @@ function getQuotedKeywords(inputText) {
 }
 
 function doPoll(params) {
-	params.respondDirectly(REQUEST_RECEIVED);
-
-	_getPerson(params.user).then((personData) => {
-		let name = params.user;
-		if(personData.ok) {
-			name = personData.user.profile.real_name;
-		}
+	_getPerson(params.user.id).then((personData) => {
+		const name = _getName(personData, params.user.name, params.user.id);
 		_respondWithPollGif(name, params);
-	}).catch((err) => {
-		_respondWithPollGif(params.user, params);
+	}).catch(() => {
+		_respondWithPollGif(params.user.name, params);
+	});
+
+	params.respondDirectly(REQUEST_RECEIVED);
+}
+
+function _getPerson(userId) {
+	return client.doPost('https://slack.com/api/users.profile.get', {
+		user: userId,
+		token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
+	}, client.URL_ENCODED).then((unwrappedData) => {
+		return JSON.parse(unwrappedData);
 	});
 }
 
-function _getPerson(username) {
-	return client.doPost('https://slack.com/api/users.info', {
-		user: username,
-		token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
-	}, 'urlencoded');
+function _getName(personData, user, userId) {
+	let name = `@${user}`;
+	if (personData.ok) {
+		name = personData.profile.first_name;
+	} else {
+		console.log(`requesting ${name}'s real name (id ${userId}) failed`);
+		console.log(personData);
+	}
+	return name;
 }
 
-function _respondWithPollGif(user, params) {
+function _respondWithPollGif(userName, params) {
 	const responseUrl = params.responseUrl;
 
-	let attachment = {
-		'fallback': 'You should totally respond if you want coffee',
-		'text': params.pollText,
-		'footer': '/giphy \'who wants coffee\'',
-		'actions': [
-			{
-				'type': 'button',
-				'name': 'yes_i_want_coffee',
-				'text': 'Me!',
-				'url': `http:/taskpot.hossack.me/record-response?url=${responseUrl}`
-			}
-		],
-		'fields': [
-			{
-				'title': 'wants taskpot',
-				'value': `${user}`,
-				'short': false
-			}
-		]
-	};
-	const responseObj = {
-		'text': 'Who wants coffee?',
-		'attachments': [
-			attachment
-		]
-	};
-
 	_callGiphy(POLL_GIPHY_TEXT).then((giphyResponse) => {
-		attachment.image_url = giphyResponse.fixed_height_downsampled_url;
-		attachment.thumb_url = giphyResponse.fixed_height_downsampled_url;
-
-		client.doPost(responseUrl, responseObj);
+		client.doPost(responseUrl, _makePollPayload(params.pollText,
+													userName,
+													giphyResponse.fixed_height_downsampled_url));
 	}).catch((err) => {
 		console.log('giphy request failed!!');
 		console.log(err);
-		client.doPost(responseUrl, responseObj);
+		client.doPost(responseUrl, _makePollPayload(params.pollText, userName));
 	});
 }
 
-function updatePoll(params) {
+function _makePollPayload(pollText, user, gifUrl) {
+	const userString = user.replace(',',', ');
+	const payload = {
+		'text': 'Who wants coffee?',
+		'response_type': 'in_channel',
+		'attachments': [
+			{
+				'fallback': 'You should totally respond if you want coffee',
+				'callback_id': 'coffee_poll',
+				'text': `${pollText}`,
+				'footer': '/giphy \'who wants coffee\'',
+				'actions': [
+					{
+						'type': 'button',
+						'name': 'yes_i_want_coffee',
+						'text': 'Me!'
+					}
+				],
+				'fields': [
+					{
+						'title': 'wants taskpot:',
+						'value': `${userString}`,
+						'short': false
+					}
+				]
+			}
+		]
+	};
+	if (gifUrl) {
+		const attachment = payload.attachments[0];
+		attachment.image_url = gifUrl;
+		attachment.thumb_url = gifUrl;
+		attachment.actions[0].url += `&gif=${gifUrl}`;
+	}
+	return payload;
+}
 
+function updatePoll(params) {
+	_getPerson(params.newUser.id).then((personData) => {
+		const name = _getName(personData, params.newUser.name, params.newUser.id);
+		_updateAndRespond(params.responseUrl, params.originalMessage, name);
+	}).catch(() => {
+		_updateAndRespond(params.responseUrl, params.originalMessage, params.newUser.name);
+	});
+
+	params.respondDirectly(REQUEST_RECEIVED);
+}
+
+function _updateAndRespond(url, originalMessage, name) {
+	const wantsTaskpot = originalMessage.attachments[0].fields[0];
+	const value = wantsTaskpot.value;
+	if (value.indexOf(name) > -1) {
+		return;
+	}
+	wantsTaskpot.value = `${value}, ${name}`;
+	client.doPost(url, originalMessage);
 }
