@@ -4,6 +4,8 @@ const util = require('util');
 const rp = require('request-promise');
 const storage = require('node-persist');
 const Promise = require('promise');
+const moment = require('moment-timezone');
+
 
 const INTERACTIVE_URL = '/record-response';
 
@@ -74,7 +76,7 @@ function clearStorage() {
 
 function doTimer(params) {
 	const user = params.user;
-	const timerSetAt = Date.now();
+	const timerSetAt = moment().tz("America/Los_Angeles").unix();
 	const setBy = storage.getItemSync('timer_set_by');
 
 	if (!!setBy) {
@@ -102,7 +104,6 @@ function doTimer(params) {
 				});
 		})
 	]).then(arr => {
-		console.log(arr);
 		const username = arr[0];
 		const giphyResponse = arr[1];
 		const attachment = 	{
