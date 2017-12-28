@@ -247,7 +247,8 @@ function _getPerson(user) {
 		console.log(`found ${user.name} in cache: ${cachedName}`);
 		return cachedName;
 	}
-	return client.doPost('https://slack.com/api/users.profile.get', {
+	return new Promise(resolve => {
+		client.doPost('https://slack.com/api/users.profile.get', {
 							user: user.id,
 							token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
 						}, client.URL_ENCODED)
@@ -262,8 +263,9 @@ function _getPerson(user) {
 				console.log(`requesting ${name}'s real name (id ${user.id}) failed`);
 				console.log(data);
 			}
-			return name;
+			resolve(name);
 		});
+	});
 }
 
 function _respondWithPollGif(userName, params) {
