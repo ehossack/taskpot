@@ -245,10 +245,9 @@ function _getPerson(user) {
 	const cachedName = storage.getItemSync(user.name);
 	if (cachedName) {
 		console.log(`found ${user.name} in cache: ${cachedName}`);
-		return cachedName;
+		return Promise.resolve(cachedName);
 	}
-	return new Promise(resolve => {
-		client.doPost('https://slack.com/api/users.profile.get', {
+	return client.doPost('https://slack.com/api/users.profile.get', {
 							user: user.id,
 							token: 'xoxp-2161696051-46847412978-290950186915-f3d376610a1e43f25d9bc1ad1f22d99b'
 						}, client.URL_ENCODED)
@@ -263,9 +262,8 @@ function _getPerson(user) {
 				console.log(`requesting ${name}'s real name (id ${user.id}) failed`);
 				console.log(data);
 			}
-			resolve(name);
+			return name;
 		});
-	});
 }
 
 function _respondWithPollGif(userName, params) {
@@ -320,7 +318,7 @@ function _makePollPayload(pollText, user, gifUrl) {
 }
 
 function updatePoll(params) {
-	_getPerson(params.newUser.id).then((username) => {
+	_getPerson(params.newUser).then((username) => {
 		_updateAndRespond(params.responseUrl, params.originalMessage, username);
 	}).catch(() => {
 		_updateAndRespond(params.responseUrl, params.originalMessage, params.newUser.name);
