@@ -70,7 +70,7 @@ const client = {
 };
 
 function getPrivateKey(keyName) {
-	if(!process.env.variable) {
+	if (!process.env.variable) {
 		throw new Error(`Missing environment variable for ${keyName}`);
 	}
 	return process.env.variable;
