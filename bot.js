@@ -30,7 +30,12 @@ const TIMER_RESPONSES = [
 	'André drinks?',
 	'~Tasktop~ Taskpot is ready',
 	'Time\'s up! PLUNGE ME',
-	'There\'s a _pressing_ issue to solve'
+	'There\'s a _pressing_ issue to solve',
+	':vuvuzela: tasktoot :vuvuzela:',
+	':vuvuzela: :taskpot: :vuvuzela:',
+	':postal_horn: :groovy: :postal_horn:',
+	':ci: Enjoy a tender moment with a pot of task :ci:',
+	'Thanks @andre.bakker'
 ];
 const GIPHY_API_KEY = getPrivateKey('GIPHY_API_KEY');
 const SLACK_TOKEN = getPrivateKey('SLACK_TOKEN');
