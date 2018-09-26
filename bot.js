@@ -10,27 +10,42 @@ const moment = require('moment-timezone');
 const INTERACTIVE_URL = '/record-response';
 
 module.exports = {
-	clearStorage: clearStorage,
-	doTimer: doTimer,
-	doAsks: doAsks,
-	doPoll: doPoll,
-	updatePoll: updatePoll,
-	INTERACTIVE_URL: INTERACTIVE_URL
+    clearStorage: clearStorage,
+    doTimer: doTimer,
+    doAsks: doAsks,
+    doPoll: doPoll,
+    updatePoll: updatePoll,
+    INTERACTIVE_URL: INTERACTIVE_URL
 };
 
 const POLL_GIPHY_TEXT = 'who wants coffee';
 const TIMER_RESPONSES = [
-	'Coffee is ready!',
-	'Pasktot for all!',
-	'The nector has been produced',
-	'Drink ye, all who require me',
-	'Brew complete',
-	'Ready to work!',
-	'It\'s time for caffeine biscuitheads!!',
-	'André drinks?',
-	'~Tasktop~ Taskpot is ready',
-	'Time\'s up! PLUNGE ME',
-	'There\'s a _pressing_ issue to solve'
+    'Coffee is ready!',
+    'Pasktot for all!',
+    'The nector has been produced',
+    'Drink ye, all who require me',
+    'Brew complete',
+    'Ready to work!',
+    'It\'s time for caffeine biscuitheads!!',
+    'André drinks?',
+    '~Tasktop~ Taskpot is ready',
+    'Time\'s up! PLUNGE ME',
+    'There\'s a _pressing_ issue to solve',
+    'Now I regret touching this...',
+    'This is way more complicated then I expected',
+    'Why was it done this way?',
+    'Is there a simple way to...... oh nvm..',
+    'Why do we have this test?',
+    'This is a nightmare',
+    'It shouldn\'t be this hard',
+    'I feel things should be simpler',
+    'Just another day or two',
+    'Oh I forgot to cherry-pick',
+    'Its so sad why it\'s not that easy to make it work.',
+    'Can you provide some logs?',
+    'I don\'t know how to name this, just gonna add Service to the end....',
+    'There\'s a code cut off today?',
+    'Why is this a code red?'
 ];
 const GIPHY_API_KEY = getPrivateKey('GIPHY_API_KEY');
 const SLACK_TOKEN = getPrivateKey('SLACK_TOKEN');
@@ -41,120 +56,120 @@ const setTimeoutPromise = util.promisify(setTimeout);
 storage.initSync();
 
 const client = {
-	URL_ENCODED: 'urlencoded',
-	doGet: (url) => {
-		return rp({
-			uri: url,
-			headers: {
-				'User-Agent': 'Request-Promise',
-				'Accept': 'application/json'
-			},
-			json: true
-		});
-	},
-	doPost: (url, payload, urlencoded) => {
-		const isJson = (urlencoded !== client.URL_ENCODED);
-		return rp({
-			method: 'POST',
-			uri: url,
-			headers: {
-				'User-Agent': 'Request-Promise',
-				'Content-Type': isJson ? 'application/json' : 'application/x-www-form-urlencoded',
-				'Accept': 'application/json'
-			},
-			body: isJson ? payload : undefined,
-			form: isJson ? undefined : payload,
-			json: !!isJson
-		});
-	}
+    URL_ENCODED: 'urlencoded',
+    doGet: (url) => {
+        return rp({
+            uri: url,
+            headers: {
+                'User-Agent': 'Request-Promise',
+                'Accept': 'application/json'
+            },
+            json: true
+        });
+    },
+    doPost: (url, payload, urlencoded) => {
+        const isJson = (urlencoded !== client.URL_ENCODED);
+        return rp({
+            method: 'POST',
+            uri: url,
+            headers: {
+                'User-Agent': 'Request-Promise',
+                'Content-Type': isJson ? 'application/json' : 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: isJson ? payload : undefined,
+            form: isJson ? undefined : payload,
+            json: !!isJson
+        });
+    }
 };
 
 function getPrivateKey(keyName) {
-	if (!process.env.variable) {
-		throw new Error(`Missing environment variable for ${keyName}`);
-	}
-	return process.env.variable;
+    if (!process.env.variable) {
+        throw new Error(`Missing environment variable for ${keyName}`);
+    }
+    return process.env.variable;
 }
 
 function clearStorage() {
-	console.log('clearing storage...');
-	storage.clearSync();
-	console.log('done');
+    console.log('clearing storage...');
+    storage.clearSync();
+    console.log('done');
 }
 
 function doTimer(params) {
-	const user = params.user;
-	const timerSetAt = moment().tz('America/Los_Angeles').unix();
-	const setBy = storage.getItemSync('timer_set_by');
+    const user = params.user;
+    const timerSetAt = moment().tz('America/Los_Angeles').unix();
+    const setBy = storage.getItemSync('timer_set_by');
 
-	if (!!setBy) {
-		const cachedName = storage.getItemSync(setBy) || setBy;
-		return params.respondDirectly({
-			'response_type': 'ephemeral',
-			'text': `Sorry, a timer was already set by ${cachedName}`
-		});
-	}
-	storage.setItemSync('timer_set_by', user.name);
+    if (!!setBy) {
+        const cachedName = storage.getItemSync(setBy) || setBy;
+        return params.respondDirectly({
+            'response_type': 'ephemeral',
+            'text': `Sorry, a timer was already set by ${cachedName}`
+        });
+    }
+    storage.setItemSync('timer_set_by', user.name);
 
-	Promise.all([
-		new Promise(resolve => {
-			_getPerson(user)
-				.then(resolve)
-				.catch(() => {
-					resolve(user.name);
-				});
-		}),
-		new Promise(resolve => {
-			_callGiphy('4 minutes')
-				.then(resolve)
-				.catch(() => {
-					resolve(null);
-				});
-		})
-	]).then(arr => {
-		const username = arr[0];
-		const giphyResponse = arr[1];
-		const attachment = 	{
-			'fallback': '4 minute gif was displayed',
-			'pretext': `${username} is steeping the coffee :coffee:`,
-			'footer': '/giphy 4 minutes',
-			'ts': timerSetAt
-		};
-		const responseObj = {
-			'response_type': 'in_channel',
-			'attachments': [
-				attachment
-			]
-		};
+    Promise.all([
+        new Promise(resolve => {
+            _getPerson(user)
+                .then(resolve)
+                .catch(() => {
+                    resolve(user.name);
+                });
+        }),
+        new Promise(resolve => {
+            _callGiphy('4 minutes')
+                .then(resolve)
+                .catch(() => {
+                    resolve(null);
+                });
+        })
+    ]).then(arr => {
+        const username = arr[0];
+        const giphyResponse = arr[1];
+        const attachment = {
+            'fallback': '4 minute gif was displayed',
+            'pretext': `${username} is steeping the coffee :coffee:`,
+            'footer': '/giphy 4 minutes',
+            'ts': timerSetAt
+        };
+        const responseObj = {
+            'response_type': 'in_channel',
+            'attachments': [
+                attachment
+            ]
+        };
 
-		if (giphyResponse) {
-			attachment.image_url = giphyResponse.fixed_height_downsampled_url;
-			attachment.thumb_url = giphyResponse.fixed_height_downsampled_url;
-		} else {
-			delete attachment.footer;
-		}
+        if (giphyResponse) {
+            attachment.image_url = giphyResponse.fixed_height_downsampled_url;
+            attachment.thumb_url = giphyResponse.fixed_height_downsampled_url;
+        } else {
+            delete attachment.footer;
+        }
 
-		client.doPost(params.responseUrl, responseObj);
-	});
+        client.doPost(params.responseUrl, responseObj);
+    });
 
-	params.respondDirectly(REQUEST_RECEIVED);
+    params.respondDirectly(REQUEST_RECEIVED);
 
-	return setTimeoutPromise(240000).then(() => {
-		storage.removeItemSync('timer_set_by');
+    return setTimeoutPromise(240000).then(() => {
+        storage.removeItemSync('timer_set_by');
 
-		const randomPhrase = TIMER_RESPONSES[Math.floor(Math.random() * TIMER_RESPONSES.length)];
-		const responseData = {
-			'response_type': 'in_channel',
-			'text': `*4 minutes is up!* ${randomPhrase}`
-		};
-		if (params.steepLocation) {
-			responseData.attachments = [
-				{ 'text': params.steepLocation }
-			];
-		}
+        const randomPhrase = TIMER_RESPONSES[Math.floor(Math.random() * TIMER_RESPONSES.length)];
+        const responseData = {
+            'response_type': 'in_channel',
+            'text': `*4 minutes is up!* ${randomPhrase}`
+        };
+        if (params.steepLocation) {
+            responseData.attachments = [
+                { 'text': params.steepLocation }
+            ];
+        }
 
-		client.doPost(params.responseUrl, responseData);
-	});
+        client.doPost(params.responseUrl, responseData);
+    });
 }
 
 /*
@@ -196,151 +211,143 @@ e.g. giphy who wants coffee
 	}
  */
 function _callGiphy(keywords) {
-	const text = encodeURI(keywords);
-	return client.doGet(`https://api.giphy.com/v1/gifs/random?tag=${text}&api_key=${GIPHY_API_KEY}`)
-		.then((wrappedData) => {
-			return wrappedData.data;
-		});
+    const text = encodeURI(keywords);
+    return client.doGet(`https://api.giphy.com/v1/gifs/random?tag=${text}&api_key=${GIPHY_API_KEY}`)
+        .then((wrappedData) => {
+            return wrappedData.data;
+        });
 }
 
 function doAsks(params) {
-	const responseUrl = params.responseUrl;
-	const keywords = getQuotedKeywords(params.inputText);
-	if (!keywords) {
-		return params.respondDirectly({
-			'response_type': 'ephemeral',
-			'text': 'you need to quote your ask with “like this”!'
-		});
-	}
+    const responseUrl = params.responseUrl;
+    const keywords = getQuotedKeywords(params.inputText);
+    if (!keywords) {
+        return params.respondDirectly({
+            'response_type': 'ephemeral',
+            'text': 'you need to quote your ask with “like this”!'
+        });
+    }
 
-	_callGiphy(keywords).then((giphyResponse) => {
-		client.doPost(responseUrl, {
-			'response_type': 'in_channel',
-			'attachments': [
-				{
-					'fallback': `I had nothing to say about ${keywords}`,
-					'title': `${keywords}`,
-					'title_link': giphyResponse.image_url,
-					'image_url': giphyResponse.fixed_height_downsampled_url,
-					'thumb_url': giphyResponse.fixed_height_downsampled_url,
-					'footer': 'Posted using giphy'
-				}
-			]
-		});
-	});
+    _callGiphy(keywords).then((giphyResponse) => {
+        client.doPost(responseUrl, {
+            'response_type': 'in_channel',
+            'attachments': [{
+                'fallback': `I had nothing to say about ${keywords}`,
+                'title': `${keywords}`,
+                'title_link': giphyResponse.image_url,
+                'image_url': giphyResponse.fixed_height_downsampled_url,
+                'thumb_url': giphyResponse.fixed_height_downsampled_url,
+                'footer': 'Posted using giphy'
+            }]
+        });
+    });
 
-	params.respondDirectly(REQUEST_RECEIVED);
+    params.respondDirectly(REQUEST_RECEIVED);
 }
 
 function getQuotedKeywords(inputText) {
-	if (!inputText.startsWith('“') && !inputText.startsWith('"')) {
-		return null;
-	}
-	return inputText.replace(/“/i, '').replace(/”/i, '').replace(/"/g, '');
+    if (!inputText.startsWith('“') && !inputText.startsWith('"')) {
+        return null;
+    }
+    return inputText.replace(/“/i, '').replace(/”/i, '').replace(/"/g, '');
 }
 
 function doPoll(params) {
-	_getPerson(params.user).then((username) => {
-		_respondWithPollGif(username, params);
-	}).catch(() => {
-		_respondWithPollGif(params.user.name, params);
-	});
+    _getPerson(params.user).then((username) => {
+        _respondWithPollGif(username, params);
+    }).catch(() => {
+        _respondWithPollGif(params.user.name, params);
+    });
 
-	params.respondDirectly(REQUEST_RECEIVED);
+    params.respondDirectly(REQUEST_RECEIVED);
 }
 
 function _getPerson(user) {
-	const cachedName = storage.getItemSync(user.name);
-	if (cachedName) {
-		console.log(`found ${user.name} in cache: ${cachedName}`);
-		return Promise.resolve(cachedName);
-	}
-	return client.doPost('https://slack.com/api/users.profile.get', {
-							user: user.id,
-							token: SLACK_TOKEN
-						}, client.URL_ENCODED)
-		.then((unwrappedData) => {
-			const data = JSON.parse(unwrappedData);
+    const cachedName = storage.getItemSync(user.name);
+    if (cachedName) {
+        console.log(`found ${user.name} in cache: ${cachedName}`);
+        return Promise.resolve(cachedName);
+    }
+    return client.doPost('https://slack.com/api/users.profile.get', {
+            user: user.id,
+            token: SLACK_TOKEN
+        }, client.URL_ENCODED)
+        .then((unwrappedData) => {
+            const data = JSON.parse(unwrappedData);
 
-			let name = `@${user.name}`;
-			if (data.ok) {
-				name = data.profile.first_name;
-				storage.setItemSync(user.name, name);
-			} else {
-				console.log(`requesting ${name}'s real name (id ${user.id}) failed`);
-				console.log(data);
-			}
-			return name;
-		});
+            let name = `@${user.name}`;
+            if (data.ok) {
+                name = data.profile.first_name;
+                storage.setItemSync(user.name, name);
+            } else {
+                console.log(`requesting ${name}'s real name (id ${user.id}) failed`);
+                console.log(data);
+            }
+            return name;
+        });
 }
 
 function _respondWithPollGif(userName, params) {
-	const responseUrl = params.responseUrl;
+    const responseUrl = params.responseUrl;
 
-	_callGiphy(POLL_GIPHY_TEXT).then((giphyResponse) => {
-		client.doPost(responseUrl, _makePollPayload(params.pollText,
-													userName,
-													giphyResponse.fixed_height_downsampled_url));
-	}).catch((err) => {
-		console.log('giphy request failed!!');
-		console.log(err);
-		client.doPost(responseUrl, _makePollPayload(params.pollText, userName));
-	});
+    _callGiphy(POLL_GIPHY_TEXT).then((giphyResponse) => {
+        client.doPost(responseUrl, _makePollPayload(params.pollText,
+            userName,
+            giphyResponse.fixed_height_downsampled_url));
+    }).catch((err) => {
+        console.log('giphy request failed!!');
+        console.log(err);
+        client.doPost(responseUrl, _makePollPayload(params.pollText, userName));
+    });
 }
 
 function _makePollPayload(pollText, user, gifUrl) {
-	const userString = user.replace(',',', ');
-	const payload = {
-		'text': 'Who wants coffee?',
-		'response_type': 'in_channel',
-		'attachments': [
-			{
-				'fallback': 'You should totally respond if you want coffee',
-				'callback_id': 'coffee_poll',
-				'text': `${pollText}`,
-				'footer': '/giphy \'who wants coffee\'',
-				'actions': [
-					{
-						'type': 'button',
-						'name': 'yes_i_want_coffee',
-						'text': 'Me!'
-					}
-				],
-				'fields': [
-					{
-						'title': 'wants taskpot:',
-						'value': `${userString}`,
-						'short': false
-					}
-				]
-			}
-		]
-	};
-	if (gifUrl) {
-		const attachment = payload.attachments[0];
-		attachment.image_url = gifUrl;
-		attachment.thumb_url = gifUrl;
-		attachment.actions[0].url += `&gif=${gifUrl}`;
-	}
-	return payload;
+    const userString = user.replace(',', ', ');
+    const payload = {
+        'text': 'Who wants coffee?',
+        'response_type': 'in_channel',
+        'attachments': [{
+            'fallback': 'You should totally respond if you want coffee',
+            'callback_id': 'coffee_poll',
+            'text': `${pollText}`,
+            'footer': '/giphy \'who wants coffee\'',
+            'actions': [{
+                'type': 'button',
+                'name': 'yes_i_want_coffee',
+                'text': 'Me!'
+            }],
+            'fields': [{
+                'title': 'wants taskpot:',
+                'value': `${userString}`,
+                'short': false
+            }]
+        }]
+    };
+    if (gifUrl) {
+        const attachment = payload.attachments[0];
+        attachment.image_url = gifUrl;
+        attachment.thumb_url = gifUrl;
+        attachment.actions[0].url += `&gif=${gifUrl}`;
+    }
+    return payload;
 }
 
 function updatePoll(params) {
-	_getPerson(params.newUser).then((username) => {
-		_updateAndRespond(params.responseUrl, params.originalMessage, username);
-	}).catch(() => {
-		_updateAndRespond(params.responseUrl, params.originalMessage, params.newUser.name);
-	});
+    _getPerson(params.newUser).then((username) => {
+        _updateAndRespond(params.responseUrl, params.originalMessage, username);
+    }).catch(() => {
+        _updateAndRespond(params.responseUrl, params.originalMessage, params.newUser.name);
+    });
 
-	params.respondDirectly(REQUEST_RECEIVED);
+    params.respondDirectly(REQUEST_RECEIVED);
 }
 
 function _updateAndRespond(url, originalMessage, name) {
-	const wantsTaskpot = originalMessage.attachments[0].fields[0];
-	const value = wantsTaskpot.value;
-	if (value.indexOf(name) > -1) {
-		return;
-	}
-	wantsTaskpot.value = `${value}, ${name}`;
-	client.doPost(url, originalMessage);
+    const wantsTaskpot = originalMessage.attachments[0].fields[0];
+    const value = wantsTaskpot.value;
+    if (value.indexOf(name) > -1) {
+        return;
+    }
+    wantsTaskpot.value = `${value}, ${name}`;
+    client.doPost(url, originalMessage);
 }
