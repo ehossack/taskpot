@@ -34,7 +34,8 @@ app.post('/', (request, response) => {
 
 		const params = {
 			username: payload.user_name,
-			userid: payload.user_id
+			userid: payload.user_id,
+			channel_id: payload.channel_id
 		};
 		const logName = params.username ? `@${params.username}` : params.userid;
 		console.log(`request: ${logName} sent "/taskpot ${allCommand}" (command: '${command}', text: '${commandText}')`);
@@ -97,21 +98,28 @@ function _respondWith(response) {
 app.post(INTERACTIVE_POLL_URL, (request, response) => {
 	const payload = JSON.parse(request.body.payload);
 
+	const command = payload.callback_id;
 	const params = {
 		username: payload.user.name,
 		userid: payload.user.id
 	};
 	const logName = params.username ? `@${params.username}` : params.userid;
-	console.log(`request: ${logName} clicked the poll button`);
 
 	const responder = new SlackResponder(_respondWith(response), payload.response_url);
 
 	try {
-		return bot.updatePoll(responder, {
-			originalMessage: payload.original_message,
-			newUserid: params.userid,
-			newUsername: params.username
-		});
+		if (command === 'coffee_poll') {
+			console.log(`request: ${logName} clicked the poll button`);
+			return bot.updatePoll(responder, {
+				originalMessage: payload.original_message,
+				newUserid: params.userid,
+				newUsername: params.username
+			});
+		} else {
+			params.action = payload.actions[0];
+			bot.markCoffeeDrunk(params);
+			responder.async({ text: 'Thanks!' });
+		}
 	} catch (err) {
 		console.error(err);
 		return _sendError(response);

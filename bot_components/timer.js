@@ -8,6 +8,7 @@ const userProvider = require('../userProvider.js');
 const Promise = require('promise');
 const setTimeoutPromise = require('util').promisify(setTimeout);
 const timerResponses = require('./timerResponses.js');
+const stalePoster = require('./stalePoster.js');
 
 const PREVIOUS_TIMER_USER = 'timer_set_by';
 const ONE_MIN_IN_MS = 60000;
@@ -24,7 +25,8 @@ module.exports = {
  *		{
  *			userid: <slack user id>,
  *			username: <slack username>,
- *			timerOpts: <double time or, steeping location>
+ *			timerOpts: <double time or, steeping location>,
+ * 			channel_id: <slack channel id>
  *		}
  *	}
  *	@returns {promise} the return promise
@@ -93,10 +95,10 @@ function run(slackResponder, params) {
 
 	slackResponder.ack();
 
-	// stalePoster.ensureFreshness(params.responseUrl, userNameProvider);
-
 	console.log(`Setting a time for ${parseTime / ONE_MIN_IN_MS} minutes...`);
+	const originalChannel = params.channel_id;
 	return setTimeoutPromise(parseTime).then(() => {
+		const timerUser = cache.retrieve(PREVIOUS_TIMER_USER);
 		cache.clear(PREVIOUS_TIMER_USER);
 
 		const responseData = {
@@ -110,6 +112,13 @@ function run(slackResponder, params) {
 		}
 
 		slackResponder.async(responseData);
+
+		if (originalChannel) {
+			stalePoster.ensureFreshness({
+				userid: timerUser,
+				originalChannel: originalChannel
+			});
+		}
 	});
 }
 
