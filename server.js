@@ -8,8 +8,13 @@ app.use(bodyParser.json({ type: 'application/json' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const bot = require('./bot.js');
+const cache = require('./cache.js');
+const SlackResponder = require('./slackResponder.js');
 
 const WEBFACTION_PORT = 13323;
+const INTERACTIVE_POLL_URL = '/record-response';
+
+SlackResponder.setSlackTokens();
 
 app.post('/', (request, response) => {
 	try {
@@ -19,33 +24,36 @@ app.post('/', (request, response) => {
 			return _sendError(response);
 		}
 
-		const commandText = payload.text;
-		const user = {
-			name: payload.user_name,
-			id: payload.user_id
-		};
-		console.log('request: @' + user.name + ' sent "/taskpot ' + payload.text + '"');
+		const allCommand = (payload.text || '');
+		const parts = allCommand.split(' ');
+		if (parts.length < 1) {
+			return _sendError(response);
+		}
+		const command = parts[0];
+		const commandText = parts.slice(1).join(' ');
 
-		if (commandText.startsWith('timer')) {
-			return bot.doTimer({
-				respondDirectly: _respondWith(response),
-				steepLocation: _getLocation(commandText),
-				user: user,
-				responseUrl: payload.response_url
-			});
-		} else if (commandText.startsWith('asks')) {
-			return bot.doAsks({
-				respondDirectly: _respondWith(response),
-				inputText: commandText.substring('asks '.length),
-				responseUrl: payload.response_url
+		const params = {
+			username: payload.user_name,
+			userid: payload.user_id
+		};
+		const logName = params.username ? `@${params.username}` : params.userid;
+		console.log(`request: ${logName} sent "/taskpot ${allCommand}" (command: '${command}', text: '${commandText}')`);
+
+		const responder = new SlackResponder(_respondWith(response), payload.response_url);
+
+		if (command === 'timer') {
+			console.log('calling timer');
+			params.steepLocation = commandText;
+			return bot.doTimer(responder, params);
+		} else if (command === 'asks') {
+			console.log('calling gif');
+			return bot.doAsks(responder, {
+				inputText: commandText
 			});
 		} else {
-			return bot.doPoll({
-				respondDirectly: _respondWith(response),
-				pollText: commandText,
-				user: user,
-				responseUrl: payload.response_url
-			});
+			console.log('polling');
+			params.pollText = commandText;
+			return bot.doPoll(responder, params);
 		}
 	} catch (err) {
 		console.error(err);
@@ -72,23 +80,23 @@ function _respondWith(response) {
 	};
 }
 
-function _getLocation(commandText) {
-	if (commandText.indexOf(' ') === -1) {
-		return null;
-	}
-	return commandText.substring('timer '.length);
-}
-
-app.post(bot.INTERACTIVE_URL, (request, response) => {
+app.post(INTERACTIVE_POLL_URL, (request, response) => {
 	const payload = JSON.parse(request.body.payload);
-	console.log(`@${payload.user.name} clicked the poll button`);
+
+	const params = {
+		username: payload.user.name,
+		userid: payload.user.id
+	};
+	const logName = params.username ? `@${params.username}` : params.userid;
+	console.log(`request: ${logName} clicked the poll button`);
+
+	const responder = new SlackResponder(_respondWith(response), payload.response_url);
 
 	try {
-		return bot.updatePoll({
-			respondDirectly: _respondWith(response),
-			responseUrl: payload.response_url,
+		return bot.updatePoll(responder, {
 			originalMessage: payload.original_message,
-			newUser: payload.user
+			newUserid: params.userid,
+			newUsername: params.username
 		});
 	} catch (err) {
 		console.error(err);
@@ -97,7 +105,7 @@ app.post(bot.INTERACTIVE_URL, (request, response) => {
 });
 
 app.listen(WEBFACTION_PORT, (err) => {
-	bot.clearStorage();
+	cache.clearAll();
 	if (err) {
 		return console.log('something bad happened', err);
 	}

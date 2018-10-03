@@ -1,6 +1,24 @@
 # taskpot
 The taskpot timer
 
+## Setup
+
+1. Find a host to run the server
+2. Install an app in slack
+3. Get your credentials, create a `secrets.json`:
+```
+{
+	"SLACK_CLIENT_ID":"...",
+	"SLACK_CLIENT_SECRET":"...",
+	"SLACK_OAUTH_CODE":"...",
+	"GIPHY_API_KEY":"..."
+}
+```
+4. Run `server.js`, with something like:
+```
+$bash: node server.js | tee logs/server.log
+```
+
 ## Current Commands
 
 * `/taskpot timer`  
@@ -21,3 +39,12 @@ There is an interactive "Me" button, that, when clicked, will append the user's 
 * `/taskpot asks "<some text"`
 
 This effectively allows Taskpot to send any gif with an arbitrary text defined in quotes.
+
+## Running tests
+
+1. Write tests
+2. Run them
+3. Commit them
+
+In all seriousness, this is a hacked project. No tests for now :)
+

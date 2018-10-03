@@ -1,0 +1,5 @@
+{
+    "javascript.autoClosingTags": false,
+    "javascript.format.enable": false,
+    "javascript.format.insertSpaceAfterCommaDelimiter": false
+}

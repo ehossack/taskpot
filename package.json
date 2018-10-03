@@ -2,7 +2,7 @@
   "name": "taskpot-bot",
   "version": "1.0.1",
   "description": "taskpot bot",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "gulp test"
   },
