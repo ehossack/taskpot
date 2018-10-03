@@ -66,7 +66,7 @@ app.post('/', (request, response) => {
 		} else {
 			console.log('calling gif');
 			return bot.doGif(responder, {
-				inputText: commandText
+				inputText: allCommand
 			});
 		}
 	} catch (err) {

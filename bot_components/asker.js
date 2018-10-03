@@ -22,7 +22,8 @@ function gif(slackResponder, params) {
     giphy.call(keywords)
     .then(response => {
 		slackResponder.async({
-			'response_type': 'in_channel',
+            'response_type': 'in_channel',
+            'text': '',
 			'attachments': [
 				{
 					'fallback': `I had nothing to say about ${keywords}`,
