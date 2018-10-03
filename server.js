@@ -70,9 +70,8 @@ app.post('/', (request, response) => {
 			}
 		} else {
 			console.log('calling gif');
-			return bot.doGif(responder, {
-				inputText: allCommand
-			});
+			params.inputText = allCommand;
+			return bot.doGif(responder, params);
 		}
 	} catch (err) {
 		console.error(err);

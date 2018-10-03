@@ -5,6 +5,7 @@ const Promise = require('promise');
 const cache = require('./cache.js');
 const secrets = require('./secretsLoader.js');
 const client = require('./client.js');
+const checks = require('./checks.js');
 
 module.exports = {
     retrieveDisplayName: retrieveDisplayName,
@@ -20,6 +21,7 @@ module.exports = {
  * @returns {Promise} a promise resolving to a display name, never rejecting
  */
 function retrieveDisplayName(userid, username) {
+    checks.isTruthy(userid, 'Must provide at least userid');
     const cachedName = cache.retrieve(key(userid));
     if (cachedName) {
         console.log(`provided ${userid} from cache: ${cachedName}`);
@@ -55,6 +57,7 @@ function retrieveDisplayName(userid, username) {
  * @returns {string} the string
  */
 function getDisplayNameForUser(userid, username) {
+    checks.isTruthy(userid, 'Must provide at least userid');
     return cache.retrieveOrDefault(key(userid), username || userid);
 }
 
