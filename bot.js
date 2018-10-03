@@ -6,7 +6,7 @@ const asker = require('./bot_components/asker.js');
 
 module.exports = {
 	doTimer: timer.run,
-	doAsks: asker.ask,
+	doGif: asker.gif,
 	doPoll: poller.poll,
 	updatePoll: poller.update
 };

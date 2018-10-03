@@ -21,24 +21,26 @@ $bash: node server.js | tee logs/server.log
 
 ## Current Commands
 
-* `/taskpot timer`  
+* `/taskpot --help` shows help
 
-Sets a 4-minute timer for coffee. This is based on the fact that french press has a 30 second steep period to account for bloom,
+* `/taskpot --timer <minutes or location>`  
+
+Sets a timer for coffee, if the text is a numerical value less than four this will be the time.
+Otherwise we will set a 4-minute timer for coffee. This is based on the fact that french press has a 30 second steep period to account for bloom,
 then a 4-minute further steep period which requires nothing but patience.  
-The timer also includes gifs, because we need more gifs. The gif keyword is "four minutes".  
-After 4 minutes, a random text string from the predefined list will appear.  
-
-`/taskpot timer <some text>` will append the text to the ultimate response,
+The timer also includes gifs, because we need more gifs. The gif keyword is "X minutes", where X is the calculated number of minutes.
+After X minutes, a random text string from the predefined list will appear.  
+If the text is non-numerical, it will append the text to the ultimate response,
 for example `/taskpot timer on levon's desk` if the coffee was steeped in an unusual location.
 
 * `/taskpot <some text>`
 
-With any text, Taskpot will create a poll with a gif (keyword "who wants coffee") and the text included.
+With any text, Taskpot will send a random gif, much as giphy once did.
+
+* `/taskpot --poll <optional text>`
+
+Creates a poll for "Who wants coffee?" with optional text
 There is an interactive "Me" button, that, when clicked, will append the user's name to a list of interested folk.
-
-* `/taskpot asks "<some text"`
-
-This effectively allows Taskpot to send any gif with an arbitrary text defined in quotes.
 
 ## Running tests
 

@@ -4,7 +4,7 @@
 const giphy = require('../giphy.js');
 
 module.exports = {
-    ask: ask
+    gif: gif
 };
 
 /**
@@ -17,14 +17,8 @@ module.exports = {
  *	}
  * @returns {void}
  */
-function ask(slackResponder, params) {
-	const keywords = getQuotedKeywords(params.inputText);
-	if (!keywords) {
-		return slackResponder.directly({
-			'response_type': 'ephemeral',
-			'text': 'you need to quote your ask with “like this”!'
-		});
-	}
+function gif(slackResponder, params) {
+    const keywords = params.inputText;
     giphy.call(keywords)
     .then(response => {
 		slackResponder.async({
@@ -43,11 +37,4 @@ function ask(slackResponder, params) {
 	});
 
 	slackResponder.ack();
-}
-
-function getQuotedKeywords(inputText) {
-	if (!inputText.startsWith('“') && !inputText.startsWith('"')) {
-		return null;
-	}
-	return inputText.replace(/“/i, '').replace(/”/i, '').replace(/"/g, '');
 }

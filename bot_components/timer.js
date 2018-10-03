@@ -10,7 +10,8 @@ const setTimeoutPromise = require('util').promisify(setTimeout);
 const timerResponses = require('./timerResponses.js');
 
 const PREVIOUS_TIMER_USER = 'timer_set_by';
-const FOUR_MIN_IN_MS = 240000;
+const ONE_MIN_IN_MS = 60000;
+const FOUR_MIN_IN_MS = ONE_MIN_IN_MS * 4;
 
 module.exports = {
 	run: run
@@ -23,7 +24,7 @@ module.exports = {
  *		{
  *			userid: <slack user id>,
  *			username: <slack username>,
- *			steepLocation: <steeping location>
+ *			timerOpts: <double time or, steeping location>
  *		}
  *	}
  *	@returns {promise} the return promise
@@ -31,7 +32,16 @@ module.exports = {
 function run(slackResponder, params) {
 	const userid = params.userid;
 	const username = params.username;
-	const steepLocation = params.steepLocation;
+	const parseTime = computeParseTime(params.timerOpts);
+	const gifText = `${parseTime / ONE_MIN_IN_MS} minutes`;
+	const steepLocation = computeSteepLocation(params.timerOpts);
+
+	if (parseTime < 0.1) {
+		return slackResponder.directly({
+			'response_type': 'ephemeral',
+			'text': 'Sorry, that is too short a time'
+		});
+	}
 
 	const timerSetAt = moment().tz('America/Los_Angeles').unix();
 
@@ -51,7 +61,7 @@ function run(slackResponder, params) {
 				.then(resolve);
 		}),
 		new Promise(resolve => {
-			giphy.call('4 minutes')
+			giphy.call(gifText)
 				.then(resolve)
 				.catch(() => resolve(null));
 		})
@@ -59,9 +69,9 @@ function run(slackResponder, params) {
 		const displayName = arr[0];
 		const gif = arr[1];
 		const attachment = 	{
-			'fallback': '4 minute gif was displayed',
+			'fallback': `${gifText} gif was displayed`,
 			'pretext': `${displayName} is steeping the coffee :coffee:`,
-			'footer': '/giphy 4 minutes',
+			'footer': `/giphy ${gifText}`,
 			'ts': timerSetAt
 		};
 		const responseObj = {
@@ -85,7 +95,8 @@ function run(slackResponder, params) {
 
 	// stalePoster.ensureFreshness(params.responseUrl, userNameProvider);
 
-	return setTimeoutPromise(FOUR_MIN_IN_MS).then(() => {
+	console.log(`Setting a time for ${parseTime / ONE_MIN_IN_MS} minutes...`);
+	return setTimeoutPromise(parseTime).then(() => {
 		cache.clear(PREVIOUS_TIMER_USER);
 
 		const responseData = {
@@ -100,4 +111,19 @@ function run(slackResponder, params) {
 
 		slackResponder.async(responseData);
 	});
+}
+
+function computeParseTime(possibleDoubleString) {
+	const asNumber = parseFloat(possibleDoubleString);
+	if (isNaN(asNumber) || asNumber > 4) {
+		return FOUR_MIN_IN_MS;
+	}
+	return asNumber.toPrecision(3) * ONE_MIN_IN_MS;
+}
+
+function computeSteepLocation(possibleSteepLocation) {
+	if (possibleSteepLocation && Number.isNaN(possibleSteepLocation)) {
+		return possibleSteepLocation;
+	}
+	return null;
 }
