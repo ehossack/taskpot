@@ -42,28 +42,32 @@ app.post('/', (request, response) => {
 
 		const responder = new SlackResponder(_respondWith(response), payload.response_url);
 
-		if (command === '--help') {
-			const helpText = //eslint-disable-line
-`Usage:
-  /taskpot --help          shows this message
-  /taskpot --timer <text>  if text is empty, or not a double, the timer is set for 4 minutes
-                           if text is a double, sets the timer for that many minutes
-						   if text is text, sets the location for where the coffee is steeping
-  /taskpot --poll <text>   sets a poll, with optional text
-  /tasktop <any text>      calls giphy with the text
-`;
-			return responder.directly({
-				'response_type': 'ephemeral',
-				'text': helpText
-			});
-		} else if (command === '--timer') {
-			console.log('calling timer');
-			params.timerOpts = commandText;
-			return bot.doTimer(responder, params);
-		} else if (command === '--poll') {
-			console.log('polling');
-			params.pollText = commandText;
-			return bot.doPoll(responder, params);
+		if (command.startsWith('--') || command.startsWith('—')) {
+			const noArgCommand = command.replace('--', '').replace('—', '');
+
+			if (noArgCommand === 'help') {
+				const helpText = //eslint-disable-line
+	`Usage:
+	  /taskpot --help          shows this message
+	  /taskpot --timer <text>  if text is empty, or not a double, the timer is set for 4 minutes
+							   if text is a double, sets the timer for that many minutes
+							   if text is text, sets the location for where the coffee is steeping
+	  /taskpot --poll <text>   sets a poll, with optional text
+	  /tasktop <any text>      calls giphy with the text
+	`;
+				return responder.directly({
+					'response_type': 'ephemeral',
+					'text': helpText
+				});
+			} else if (noArgCommand === 'timer') {
+				console.log('calling timer');
+				params.timerOpts = commandText;
+				return bot.doTimer(responder, params);
+			} else if (noArgCommand === 'poll') {
+				console.log('polling');
+				params.pollText = commandText;
+				return bot.doPoll(responder, params);
+			}
 		} else {
 			console.log('calling gif');
 			return bot.doGif(responder, {
