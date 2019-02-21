@@ -3,8 +3,11 @@
 
 'use strict';
 
+const RATING = 'pg-13';
+
 const client = require('./client.js');
 const secrets = require('./secretsLoader.js');
+
 
 module.exports = {
 	call: call
@@ -22,7 +25,7 @@ module.exports = {
 function call(keywords) {
 	const text = encodeURI(keywords);
 	const apiKey = secrets.getPrivateKey('GIPHY_API_KEY');
-	return client.doGet(`https://api.giphy.com/v1/gifs/random?tag=${text}&api_key=${apiKey}`)
+	return client.doGet(`https://api.giphy.com/v1/gifs/random?tag=${text}&rating=${RATING}&api_key=${apiKey}`)
 		.then(wrappedData => {
 			return {
 				giphy_url: wrappedData.data.url,
