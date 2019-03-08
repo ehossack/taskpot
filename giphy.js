@@ -3,7 +3,7 @@
 
 'use strict';
 
-const RATING = 'pg-13';
+const RATING = 'pg';
 
 const client = require('./client.js');
 const secrets = require('./secretsLoader.js');
