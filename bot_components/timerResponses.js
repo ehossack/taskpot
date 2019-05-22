@@ -19,6 +19,18 @@ const AS_THEY_SAY_IN_HUB = [
     'Why is this a code red?'
 ].map(string => `As they say in hub, "${string}"`);
 
+const AS_THEY_SAY_IN_VIZ = [
+	'Is production down?',
+	'Is staging down?',
+	'Deplying to production!',
+	'Delete the service to restart it',
+	'Demo soon, don\'t touch anything',
+	'Reprocessing...',
+	'What does internal server error mean?',
+	'My minikube is giving me an error...',
+	'Have you tried deleting it and restarting?',
+].map(string => `As they say in viz, "${string}"`);
+
 const TIMER_RESPONSES = [
 	'Coffee is ready!',
 	'Pasktot for all!',
@@ -36,7 +48,7 @@ const TIMER_RESPONSES = [
 	':postal_horn: :groovy: :postal_horn:',
 	':ci: Enjoy a tender moment with a pot of task :ci:',
 	'Thanks @andre.bakker'
-].concat(AS_THEY_SAY_IN_HUB);
+].concat(AS_THEY_SAY_IN_HUB).concat(AS_THEY_SAY_IN_VIZ);
 
 module.exports = {
     getPhrase: () => TIMER_RESPONSES[Math.floor(Math.random() * TIMER_RESPONSES.length)]
